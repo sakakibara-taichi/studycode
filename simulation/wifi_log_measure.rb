@@ -1,10 +1,11 @@
+# this code is used to measure to access point log data
 #!/usr/local/bin/ruby
 
 require 'csv'
 require "fileutils"
 
-ch = [36,40,48]
-location = 1 #測定位置を設定する
+# ch = [36,40,48] #chanel decision
+location = 1 # set to measurement position
 
 loop{
 	loop{
@@ -15,21 +16,21 @@ loop{
 		end
 	}
 	
-	info=[] # 最終的なデータ
+	info=[] # for final data
 	
-	for c in ch
-		system("sudo airport -z")
-		system("sudo airport -c#{c.to_s}")
-		# system("sudo tcpdump -i en0 -tneI | grep 'Beacon' > tcpdump.txt & sleep 3") #3秒間tcpdumpする
+	# for c in ch
+	# 	system("sudo airport -z")
+	# 	system("sudo airport -c#{c.to_s}")
+		# system("sudo tcpdump -i en0 -tneI | grep 'Beacon' > tcpdump.txt & sleep 3") #command tcpdump for 3 seconds
         system("sudo tcpdump -i en0 -tneI > tcpdump.txt & sleep 3")
 		system("sudo pkill tcpdump")# tcpdump停止
 
 
-		data=[] # 行ごとの確定データ 
-		temp=[] # 一時的なデータ(temporary data)
+		data=[] # for saving confirm data
+		temp=[] # for saving temporary data
 		
 
-		File.foreach('tcpdump.txt'){|line|  # foreachで1行ごとに読み込む
+		File.foreach('tcpdump.txt'){|line|  # reading each line
 			unless /SA:/=~line then
 				next
 			end
@@ -39,13 +40,13 @@ loop{
             unless /Beacon/=~line then
 				next
 			end
-			#すでに測定済みか否かを判断
+			# deciding whether to exist in table
 			catch :adding do
-				for i in 0...temp.size # Already Exist in Table?
+				for i in 0...temp.size 
                     if (line[(/SA:/=~line)+3,17]==temp[i][:macaddress])
-                        # temp[i][:sample0] << line[(/sig/=~line)+1,(/6.0*/=~line)-3].to_i #SSIDと一致する場所から文字の位置を指定追加 .to_iは整数に変換
-						temp[i][:sample1] << line[(/signal/=~line)-7,3].to_i #signalと一致する場所から7文字前を参照し追加 .to_iは整数に変換
-						temp[i][:sample2] << line[(/noise/=~line)-8,4].to_i #noiseと一致する場所から7文字前を参照し追加 .to_iは整数に変換
+                        # temp[i][:sample0] << line[(/sig/=~line)+1,(/6.0*/=~line)-3].to_i #SSIDと一致する場所から文字の位置を指定追加 
+						temp[i][:sample1] << line[(/signal/=~line)-7,3].to_i # signalと一致する場所から7文字前を参照し追加 
+						temp[i][:sample2] << line[(/noise/=~line)-8,4].to_i # noiseと一致する場所から7文字前を参照し追加 
 						throw :adding
 					end
 				end
@@ -55,7 +56,7 @@ loop{
 			end
 		}
 		
-		#rssiとnoiseを平均処理する
+		# average rssi and noise from sum data
 		for i in 0...temp.size
 			# temp[i][:rssi] = temp[i][:sample].max_by {|value| temp[i][:sample].count(value)}
 			temp[i][:rssi]=temp[i][:sample1].inject(:+)/temp[i][:sample1].length  # rssiの平均
@@ -72,8 +73,9 @@ loop{
         FileUtils.cp("tcpdump.txt", "tcpdump#{c.to_s}.txt") 
         # system("tcpdump.txt > tcpdump#{c.to_s}.txt")
         system("rm tcpdump.txt")
-	end
+	# end
 	
+	# output csv 
 	CSV.open("data_location#{location.to_s}.csv",'w') do |csv|
 			info.each do |bo|
 				csv << bo
